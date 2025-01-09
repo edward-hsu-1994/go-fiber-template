@@ -3,10 +3,16 @@ name: Docker
 on:
   push:
     tags: [ '*.*.*' ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to tag the Docker image'
+        required: true
+        default: '0.0.0'
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ${{ github.repository }}  
 
 jobs:
   build:
@@ -18,7 +24,12 @@ jobs:
 
       - name: Extract tag
         id: extract_tag
-        run: echo "VERSION=${GITHUB_REF##*/}" >> $GITHUB_ENV
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=${GITHUB_REF##*/}" >> $GITHUB_ENV
+          fi
         
       - name: Install cosign
         uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 #v3.5.0
