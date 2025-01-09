@@ -1,5 +1,8 @@
 name: Docker
 
+permissions:
+  packages: write
+
 on:
   push:
     tags: [ '*.*.*' ]
