@@ -7,15 +7,14 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/wire"
 	"go-fiber-template/accesses"
+	"go-fiber-template/base"
 	"go-fiber-template/routes"
 	"go-fiber-template/services"
-)
-
-import (
-	_ "go-fiber-template/docs"
+	"os"
 )
 
 // Injectors from wire.go:
@@ -30,7 +29,11 @@ func InitializeApp() (*fiber.App, error) {
 }
 
 func InitialFiberRouters() ([]routes.FiberRouter, error) {
-	newsRouter := routes.NewNewsRouter()
+	config, err := LoadConfig()
+	if err != nil {
+		return nil, err
+	}
+	newsRouter := routes.NewNewsRouter(config)
 	postRepository := accesses.NewMockPostRepository()
 	postService := services.NewPostService(postRepository)
 	postRouter := routes.NewPostRouter(postService)
@@ -40,11 +43,34 @@ func InitialFiberRouters() ([]routes.FiberRouter, error) {
 
 // wire.go:
 
+func LoadConfig() (*base.Config, error) {
+	file, err := os.Open("./config/config.json")
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	config := new(base.Config)
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&config)
+	if err != nil {
+		return nil, err
+	}
+
+	return config, nil
+}
+
+var baseDependencies = wire.NewSet(
+	LoadConfig,
+)
+
 func FilberConfig() ([]fiber.Config, error) {
 	return []fiber.Config{}, nil
 }
 
-var repoSet = wire.NewSet(accesses.NewMockPostRepository)
+var repoSet = wire.NewSet(
+	baseDependencies, accesses.NewMockPostRepository,
+)
 
 var serviceSet = wire.NewSet(services.NewPostService)
 

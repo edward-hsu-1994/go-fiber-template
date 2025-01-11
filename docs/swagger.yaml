@@ -65,6 +65,19 @@ info:
   title: Go Fiber Template
   version: "1.0"
 paths:
+  /api/v1/news/test:
+    get:
+      description: test
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Test
+          schema:
+            type: string
+      summary: Test
+      tags:
+      - news
   /api/v1/posts:
     get:
       description: get posts paging list
