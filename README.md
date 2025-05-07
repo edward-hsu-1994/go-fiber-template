@@ -1,19 +1,10 @@
 ﻿go-fiber-template
 ======
 
-This is a Web API application template based on Fiber. This template includes Wire and Swagger, allowing you to quickly develop Web API applications.
+This is a Web API application template based on Fiber. This template includes uber-go/fx and Swagger, allowing you to quickly develop Web API applications.
 
 
 ## Setup
-
-### Install Go-Wire
-
-To install Go-Wire, run the following command:
-
-```bash
-go install github.com/google/wire/cmd/wire@latest
-go mod tidy # This command is used to update the go.mod file
-```
 
 ### Install swag
 
@@ -33,10 +24,9 @@ go get -u github.com/gofiber/swagger
 
 ## How dependencies injection works in this template
 
-This project uses Wire to manage dependencies. You can use the following command to generate the dependency injection code:
+This project uses uber-go/fx to manage dependencies. 
 
-In the wire.go file, we can see that three WireSets are defined, namely repoSet, serviceSet, routesSet,
-which respectively define the dependency relationship of the Repository layer, Service layer, and Route layer.
+In the main.go file, we can see all the dependencies are registered in the fx.Provide function. The fx.Provide function is used to register constructors for the dependencies that need to be injected.
 
 It is worth noting that the route layer in this project defines an interface to describe the routing configuration for FiberApp. All routing configurations must implement this interface.
 
@@ -52,7 +42,7 @@ type PostRouter struct {
 
 // The PostRouter requires a PostService object to be injected into the constructor.
 func NewPostRouter(postService *services.PostService) *PostRouter {
-	return &PostRouter{
+    return &PostRouter{
         _postService: postService,
     }
 }
@@ -61,24 +51,36 @@ func NewPostRouter(postService *services.PostService) *PostRouter {
 After defining the routing configuration, you can add the objects you need to Dependency injection in the constructor of the Route type.
 
 ```go
-var routesSet = wire.NewSet(
-	routes.NewNewsRouter,
-	routes.NewPostRouter, // Add the Router object to the dependency injection set
-	
-	AssembleFiberRouters,
-)
-
-// This method is used to assemble all routing configurations and return a list of FiberRouters.
-// This list will be used in main.go to configure the routes of FiberApp.
-func AssembleFiberRouters(
-	newsRouter *routes.NewsRouter, 
-	postRouter *routes.PostRouter, // Inject the Router object into the AssembleFiberRouters method
-) []routes.FiberRouter {
-	return []routes.FiberRouter{newsRouter, postRouter}
+func main() {
+    app := fx.New(
+        fx.Provide(
+            LoadConfig,
+            accesses.NewMockPostRepository,
+            services.NewPostService,
+            routes.NewPostRouter, // Add the Router object to the dependency injection
+            routes.NewNewsRouter,
+            func(
+                newsRouter *routes.NewsRouter, // Inject the Router object into this method
+                postRouter *routes.PostRouter,
+            ) []routes.FiberRouter {
+                return []routes.FiberRouter{newsRouter, postRouter} // Return the list of Router objects
+            },
+            FiberConfig,
+            NewFiberApp,
+        ),
+        fx.Invoke(func(app *fiber.App) {
+            log.Println("Starting Fiber app on port 3000...")
+            if err := app.Listen(":3000"); err != nil {
+            log.Fatalf("Failed to start Fiber app: %v", err)
+            }
+        }),
+    )
+    
+    app.Start(context.Background())
 }
 ```
 
-This AssembleFiberRouters method is used to assemble all routing configurations and return a list of FiberRouters. 
+This `func(...) []routes.FiberRouter` method is used to assemble all routing configurations and return a list of FiberRouters. 
 This list will be used in main.go to configure the routes of FiberApp.
 
 The dependency injection relationship diagram of the entire project is as follows:
