@@ -17,14 +17,9 @@ swag:
 	@echo "Generating swagger docs..."
 	@swag init
 
-# Wire
-wire:
-	@echo "Running wire..."
-	@wire
-
 # Run the application
 .PHONY: run
-run: wire swag
+run: swag
 	@echo "Running $(APP_NAME)..."
 	@go run main.go
 
@@ -48,7 +43,7 @@ lint:
 
 # Build the application
 .PHONY: build
-build: deps wire swag
+build: deps swag
 	@echo "Building $(APP_NAME)..."
 	@mkdir -p $(BUILD_DIR)
 	@go build -o $(BUILD_DIR)/$(APP_NAME)
@@ -75,4 +70,5 @@ help:
 	@echo "  make fmt       Format code"
 	@echo "  make lint      Lint the code"
 	@echo "  make build     Build the application"
+	@echo "  make docker-build Build the application docker image"
 	@echo "  make clean     Clean build artifacts"
