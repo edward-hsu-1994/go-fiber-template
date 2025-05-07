@@ -1,10 +1,19 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/swagger"
+	"go-fiber-template/accesses"
+	"go-fiber-template/base"
 	docs "go-fiber-template/docs"
 	"go-fiber-template/helpers"
+	"go-fiber-template/routes"
+	"go-fiber-template/services"
+	"go.uber.org/fx"
+	"log"
+	"os"
 	"strings"
 )
 
@@ -14,11 +23,39 @@ import (
 // @license MIT
 // @BasePath /
 func main() {
-	app, err := InitializeApp()
+	app := fx.New(
+		fx.Provide(
+			LoadConfig,
+			accesses.NewMockPostRepository,
+			services.NewPostService,
+			routes.NewPostRouter,
+			routes.NewNewsRouter,
+			func(
+				newsRouter *routes.NewsRouter,
+				postRouter *routes.PostRouter,
+			) []routes.FiberRouter {
+				return []routes.FiberRouter{newsRouter, postRouter}
+			},
+			FiberConfig,
+			NewFiberApp,
+		),
+		fx.Invoke(func(app *fiber.App) {
+			log.Println("Starting Fiber app on port 3000...")
+			if err := app.Listen(":3000"); err != nil {
+				log.Fatalf("Failed to start Fiber app: %v", err)
+			}
+		}),
+	)
 
-	if err != nil {
-		panic(err)
-	}
+	app.Start(context.Background())
+}
+
+func NewFiberApp(
+	lc fx.Lifecycle,
+	fiberConfig []fiber.Config,
+	routers []routes.FiberRouter,
+) *fiber.App {
+	app := fiber.New(fiberConfig...)
 
 	// Setting hostname for swagger
 	alreadySettingSwaggerHostname := false
@@ -47,23 +84,30 @@ func main() {
 		return err
 	})
 
-	// configure routes
-	routers, err := InitialFiberRouters()
-
-	if err != nil {
-		panic(err)
-	}
-
 	for _, router := range routers {
 		router.ConfigureRoutes(app)
 	}
 
-	println("Server is running on port 3000")
-	err = app.Listen(":3000")
+	return app
+}
 
+func FiberConfig() []fiber.Config {
+	return []fiber.Config{}
+}
+
+func LoadConfig() *base.Config {
+	file, err := os.Open("./config/config.json")
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	config := new(base.Config)
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&config)
 	if err != nil {
 		panic(err)
 	}
 
-	println("Server is stopped")
+	return config
 }
